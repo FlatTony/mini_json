@@ -1,0 +1,73 @@
+{
+    "string": "Hello, World!",
+    "number": 123,
+    "array": [
+        "first",
+        "second",
+        3,
+        true,
+        null,
+        {
+            "nestedObject1": 4,
+            "nestedObject2": "seven"
+        }
+    ],
+    "object": {
+        "key1": "value1",
+        "key2": 2,
+        "key3": [
+            "arrayItem1",
+            "arrayItem2"
+        ],
+        "nestedObject": {
+            "subKey1": "subValue1",
+            "subKey2": 10,
+            "subKey3": {
+                "deepNestedKey": "deepValue"
+            }
+        }
+    },
+    "escapedCharacters": "Line 1\\nLine 2\\tTabbed",
+    "unicodeCharacters": "Unicode: \u03A9 \u2602",
+    "complexArray": [
+        {
+            "item": "A",
+            "value": 10
+        },
+        {
+            "item": "B",
+            "value": 2
+        },
+        {
+            "item": "C",
+            "value": 3
+        }
+    ],
+    "emptyString": "",
+    "emptyObject": {},
+    "emptyArray": [],
+    "largeNumber": 12345678901234567890,
+    "nestedArrays": [
+        [
+            "nested1",
+            "nested2"
+        ],
+        [
+            "nested3",
+            {
+                "nestedKey": "nestedValue"
+            }
+        ]
+    ],
+    "mixedTypes": [
+        "text",
+        42,
+        {
+            "innerObject": "innerValue"
+        },
+        [1, 2, 3],
+        true,
+        null
+    ],
+    "specialCharacters": "!@#$%^&*()_+-=[]{};':\"\\|,.<>?/"
+}

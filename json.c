@@ -4,7 +4,7 @@
 #include <string.h>
 #include "json.h"
 
-#define IN_DEBUG 0
+#define IN_DEBUG 1
 
 #if defined(IN_DEBUG) && IN_DEBUG
 #include "utils.h"
