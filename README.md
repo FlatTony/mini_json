@@ -22,8 +22,10 @@ json_t tokens[150]; //tokens
 int t;              //number of tokens
 char temp[255];     //placeholder for value string
 
-json_get_value_by_object(tokens, t, "root.object.string1", temp) --> temp = "Hello\0"
-json_get_value_by_object(tokens, t, "root.array[1]", temp) --> temp = "true\0"
+json_parse(buffer, tokens, 150); // tokenize JSON buffer
+
+json_get_value_by_object(tokens, t, "root.object.string1", temp) // temp = "Hello\0"
+json_get_value_by_object(tokens, t, "root.array[1]", temp) // temp = "true\0"
 ```
 
 ## Limitations
