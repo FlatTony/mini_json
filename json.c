@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <string.h>
+#include <stdint.h>
 #include "json.h"
 
 #define IN_DEBUG 1
@@ -10,66 +10,58 @@
 #include "utils.h"
 #endif // IN_DEBUG
 
-#define MAX_TOKENS      255
-#define MAX_BRACKETS    50
-
 const char* types[] = { "OBJECT", "ARRAY", "NUMBER", "STRING", "BOOL", "NULL" };
 
-int json_parse(const char* json, json_t *tokens, const unsigned int num_tokens) {
+void json_parser_init(json_parser *parser, json_t *tokens, uint16_t max_tokens) {
+    parser->obj_idx = 0;
+    parser->tokens = tokens;
+    parser->max_tokens = max_tokens;
+}
 
-    static json_t js_tokens[MAX_TOKENS];            // Array of tokens
-
-    static int brackets[MAX_BRACKETS];              // Array of indexes to open curly brackets
+int json_parse(const char *buffer, json_parser *parser) {
 
     char c;                                         // Current character
     int i = 0;                                      // Index through the buffer
-    int obj_idx = 0;                                // Index of the current token
+    uint8_t add_token = 0;                          // Boolean to add token to parser
 
-    unsigned char found = 0;
-
-    if (num_tokens > MAX_TOKENS) {
-        printf("Too many tokens defined to be used. Max number allowed: %d", MAX_TOKENS);
-        return -1;
-    }
-
-    while (json[i] != 0)
+    while (buffer[i] != 0)
     {
-        c = json[i];
+        c = buffer[i];
 
         switch (c)
         {
             case '"':
             {
-                js_tokens[obj_idx].type = J_STRING;
+                parser->tokens[parser->obj_idx].type = J_STRING;
 
                 // Skip the first "
                 i += 1;
 
                 //Catch empty string
-                if (json[i] == '"') {
+                if (buffer[i] == '"') {
                     // Reset value to empty string if it was set somehow
-                    memset(js_tokens[obj_idx].value, '\0', sizeof(js_tokens[obj_idx].value));
+                    memset(parser->tokens[parser->obj_idx].value, '\0', sizeof(parser->tokens[parser->obj_idx].value));
                     // Advance the index past the second "
                     i++;
-                    // Still need to set found flag so that the token is built out
-                    found = 1;
+                    // Still need to set add_token flag so that the token is built out
+                    add_token = 1;
                     break;
                 }
 
-                js_tokens[obj_idx].value[0] = json[i];
+                parser->tokens[parser->obj_idx].value[0] = buffer[i];
 
                 int j = 1;
-                while ((json[++i] != '"' || json[i-1] == '\\') && json[i] != '\0') {
-                    if (json[i+1] == 0)
+                while ((buffer[++i] != '"' || buffer[i-1] == '\\') && buffer[i] != '\0') {
+                    if (buffer[i+1] == 0)
                     {
-                        printf("ERROR: String missing end quote. Token: %d, Captured %s\n", obj_idx, js_tokens[obj_idx].value);
-                        printf("Previous token: %d %s %s\n", obj_idx-1, types[js_tokens[obj_idx-1].type], js_tokens[obj_idx-1].value);
+                        printf("ERROR: String missing end quote. Token: %d, Captured %s\n", parser->obj_idx, parser->tokens[parser->obj_idx].value);
+                        printf("Previous token: %d %s %s\n", parser->obj_idx-1, types[parser->tokens[parser->obj_idx-1].type], parser->tokens[parser->obj_idx-1].value);
                         return -1;
                     }
-                    js_tokens[obj_idx].value[j] = json[i];
+                    parser->tokens[parser->obj_idx].value[j] = buffer[i];
                     j++;
                 }
-                found = 1;
+                add_token = 1;
 
             } break;
             case '-':
@@ -83,15 +75,15 @@ int json_parse(const char* json, json_t *tokens, const unsigned int num_tokens) 
             {
                 if (c == '-' || (c >= '0' && c <= '9'))
                 {
-                    js_tokens[obj_idx].type = J_NUMBER;
+                    parser->tokens[parser->obj_idx].type = J_NUMBER;
                 }
                 else if (c == 'n' || c == 'N')
                 {
-                    js_tokens[obj_idx].type = J_NULL;
+                    parser->tokens[parser->obj_idx].type = J_NULL;
                 }
                 else if (c == 't' || c == 'T' || c == 'f' || c == 'F')
                 {
-                    js_tokens[obj_idx].type = J_BOOL;
+                    parser->tokens[parser->obj_idx].type = J_BOOL;
                 }
                 else {
                     printf("How did you get here?");
@@ -99,78 +91,78 @@ int json_parse(const char* json, json_t *tokens, const unsigned int num_tokens) 
                 }
 
                 int j = 0;
-                while (json[i+1] != ',' &&
-                       json[i+1] != '}' &&
-                       json[i+1] != ']' &&
-                       json[i+1] != '\n' &&
-                       json[i+1] != '\r' )
+                while (buffer[i+1] != ',' &&
+                       buffer[i+1] != '}' &&
+                       buffer[i+1] != ']' &&
+                       buffer[i+1] != '\n' &&
+                       buffer[i+1] != '\r' )
                 {
-                    js_tokens[obj_idx].value[j] = json[i];
+                    parser->tokens[parser->obj_idx].value[j] = buffer[i];
                     j++;
                     i++;
                 }
                 // Catch the last character
-                js_tokens[obj_idx].value[j] = json[i];
+                parser->tokens[parser->obj_idx].value[j] = buffer[i];
 
-                found = 1;
+                add_token = 1;
 
             } break;
 
             case ':':
             {
-                if (js_tokens[obj_idx-1].type == J_STRING) {
+                if (parser->tokens[parser->obj_idx-1].type == J_STRING) {
                     // This string is a key to the next object/array or value
-                    strcpy(js_tokens[obj_idx-1].key, js_tokens[obj_idx-1].value);
-                    memset(js_tokens[obj_idx-1].value, '\0', sizeof(js_tokens[obj_idx-1].value));
-                    js_tokens[js_tokens[obj_idx-1].parent].children -= 1;
-                    obj_idx--;
+                    strcpy(parser->tokens[parser->obj_idx-1].key, parser->tokens[parser->obj_idx-1].value);
+                    memset(parser->tokens[parser->obj_idx-1].value, '\0', sizeof(parser->tokens[parser->obj_idx-1].value));
+                    parser->tokens[parser->tokens[parser->obj_idx-1].parent].children -= 1;
+                    parser->obj_idx--;
                 }
 
             } break;
             case '{':
             {
-                js_tokens[obj_idx].type = J_OBJECT;
+                parser->tokens[parser->obj_idx].type = J_OBJECT;
 
                 // Handle root seperately
-                if (obj_idx == 0) {
-                    js_tokens[obj_idx].parent = -1;
-                    strcpy(js_tokens[obj_idx].key, "root");
-                    memmove(&brackets[1], &brackets[0], sizeof(brackets) - sizeof(*brackets));
-                    brackets[0] = -1;
-                    obj_idx++;
+                if (parser->obj_idx == 0) {
+                    parser->tokens[parser->obj_idx].parent = 65535;
+                    strcpy(parser->tokens[parser->obj_idx].key, "root");
+                    memmove(&parser->brackets[1], &parser->brackets[0], sizeof(parser->brackets) - sizeof(*parser->brackets));
+                    parser->brackets[0] = -1;
+                    parser->obj_idx++;
                 }
                 else {
-                    found = 1;
+                    add_token = 1;
                 }
 
             } break;
             case '}':
             {
-                memmove(&brackets[0], &brackets[1], sizeof(brackets) - sizeof(*brackets));
-                brackets[MAX_BRACKETS-1] = 0;
+                memmove(&parser->brackets[0], &parser->brackets[1], sizeof(parser->brackets) - sizeof(*parser->brackets));
+                parser->brackets[31] = 0;
 
             } break;
             case '[':
             {
-                js_tokens[obj_idx].type = J_ARRAY;
+                parser->tokens[parser->obj_idx].type = J_ARRAY;
 
                 // Handle root seperately
-                if (obj_idx == 0) {
-                    js_tokens[obj_idx].parent = -1;
-                    strcpy(js_tokens[obj_idx].key, "root");
-                    memmove(&brackets[1], &brackets[0], sizeof(brackets) - sizeof(*brackets));
-                    brackets[0] = -1;
-                    obj_idx++;
+                if (parser->obj_idx == 0) {
+                    parser->tokens[parser->obj_idx].parent = 65535;
+                    strcpy(parser->tokens[parser->obj_idx].key, "root");
+                    memmove(&parser->brackets[1], &parser->brackets[0], sizeof(parser->brackets) - sizeof(*parser->brackets));
+                    parser->brackets[0] = -1;
+                    parser->obj_idx++;
                 }
                 else {
-                    found = 1;
+                    add_token = 1;
                 }
 
             } break;
             case ']':
             {
-                memmove(&brackets[0], &brackets[1], sizeof(brackets) - sizeof(*brackets));
-                brackets[MAX_BRACKETS-1] = 0;
+                memmove(&parser->brackets[0], &parser->brackets[1], sizeof(parser->brackets) - sizeof(*parser->brackets));
+                parser->brackets[31] = 0;
 
             } break;
             default:
@@ -178,44 +170,34 @@ int json_parse(const char* json, json_t *tokens, const unsigned int num_tokens) 
         }
 
         // All similar operations for a found token
-        if (found == 1) {
-            js_tokens[obj_idx].parent = (brackets[0] > 0) ? brackets[0] : 0;
-            js_tokens[js_tokens[obj_idx].parent].children += 1;
+        if (add_token == 1) {
+            parser->tokens[parser->obj_idx].parent = (parser->brackets[0] != 65535) ? parser->brackets[0] : 0;
+            parser->tokens[parser->tokens[parser->obj_idx].parent].children += 1;
 
-            if (js_tokens[obj_idx].type == J_OBJECT || js_tokens[obj_idx].type == J_ARRAY) {
-                memmove(&brackets[1], &brackets[0], sizeof(brackets) - sizeof(*brackets));
-                brackets[0] = obj_idx;
+            if (parser->tokens[parser->obj_idx].type == J_OBJECT || parser->tokens[parser->obj_idx].type == J_ARRAY) {
+                memmove(&parser->brackets[1], &parser->brackets[0], sizeof(parser->brackets) - sizeof(*parser->brackets));
+                parser->brackets[0] = parser->obj_idx;
             }
 
-            if (js_tokens[js_tokens[obj_idx].parent].type == J_ARRAY) {
-                strcpy(js_tokens[obj_idx].key, js_tokens[js_tokens[obj_idx].parent].key);
-                strcat(js_tokens[obj_idx].key, "[");
-                itoa(js_tokens[js_tokens[obj_idx].parent].children-1, js_tokens[obj_idx].key + strlen(js_tokens[obj_idx].key), 10);
-                strcat(js_tokens[obj_idx].key, "]");
+            if (parser->tokens[parser->tokens[parser->obj_idx].parent].type == J_ARRAY) {
+                strcpy(parser->tokens[parser->obj_idx].key, parser->tokens[parser->tokens[parser->obj_idx].parent].key);
+                strcat(parser->tokens[parser->obj_idx].key, "[");
+                itoa(parser->tokens[parser->tokens[parser->obj_idx].parent].children-1, parser->tokens[parser->obj_idx].key + strlen(parser->tokens[parser->obj_idx].key), 10);
+                strcat(parser->tokens[parser->obj_idx].key, "]");
             }
-            obj_idx++;
-            found = 0;
+            parser->obj_idx++;
+            add_token = 0;
         }
 
-        if (obj_idx > num_tokens) {
+        if (parser->obj_idx > parser->max_tokens) {
             printf("ERROR: Not enough token memory dedicated.\n");
             return -1;
         }
 
-        i += 1;
+        i++;
     }
 
-    // Check that all brackets had a similar closing one
-    for (i = 0; i < MAX_BRACKETS; i++) {
-        if (brackets[i] != 0) {
-            //print_array("brackets", brackets, MAX_BRACKETS);
-            printf("ERROR: Token %d is malformed.\n", i);
-            return -1;
-        }
-    }
-
-    memcpy(tokens, &js_tokens, sizeof(js_tokens[0])*(obj_idx));
-    return obj_idx;
+    return 0;
 }
 
 int json_get_value_by_object(json_t *tokens, int num_tokens, char *search_object, char *value) {
@@ -256,12 +238,6 @@ int json_get_value_by_object(json_t *tokens, int num_tokens, char *search_object
     return 0;
 }
 
-#if defined(IN_DEBUG) && IN_DEBUG
-void print_tokens(json_t *tokens, int num_tokens) {
-    for (int i = 0; i < num_tokens; i++)
-    {
-        printf("Token %d, Type: %s, Key: %s, Value: %s, Parent: %d, Children %d\n", i, types[tokens[i].type], tokens[i].key, tokens[i].value, tokens[i].parent, tokens[i].children);
-        //printf("Token %d, Type: %s, Key: %s, Value: %s\n", i, types[tokens[i].type], tokens[i].key, tokens[i].value);
-    }
+void print_token(json_t *tokens, int idx) {
+    printf("Token %d, Type: %s, Key: %s, Value: %s, Parent: %d, Children %d\n", idx, types[tokens[idx].type], tokens[idx].key, tokens[idx].value, tokens[idx].parent, tokens[idx].children);
 }
-#endif // IN_DEBUG

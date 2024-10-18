@@ -10,12 +10,21 @@ typedef struct json_t
     unsigned char type;
     int children;
     int parent;
-    char key[80];
-    char value[80];
+    char key[41];
+    char value[81];
 } json_t;
 
-int json_parse(const char* buffer, json_t *tokens, const unsigned int num_tokens);
+typedef struct json_parser
+{
+    struct json_t *tokens;
+    uint16_t obj_idx;
+    uint16_t brackets[32];
+    uint16_t max_tokens;
+} json_parser;
+
+void json_parser_init(json_parser *parser, json_t *tokens, uint16_t max_tokens);
+int json_parse(const char *buffer, json_parser *parser);
 int json_get_value_by_object(json_t *tokens, int num_tokens, char *search_object, char *value);
-void print_tokens(json_t *tokens, int num_tokens);
+void print_token(json_t *tokens, int idx);
 
 #endif // JSON_H_INCLUDED
