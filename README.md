@@ -19,15 +19,20 @@ Searching for a specific value is made easy with `json_get_value_by_object`
 
 ```
 json_t tokens[150]; //tokens
-int t;              //number of tokens
+json_parser parser; //parser
+
+char buffer[256] = "{ "object": { "string1" : "Hello", "string2": World }, "array": [0, true, null] }";
 char temp[255];     //placeholder for value string
 
-json_parse(buffer, tokens, 150); // tokenize JSON buffer
+json_parser_init(&parser, tokens, MAX_TOKENS); //Initialize the parser
 
-json_get_value_by_object(tokens, t, "root.object.string1", temp) // temp = "Hello\0"
-json_get_value_by_object(tokens, t, "root.array[1]", temp) // temp = "true\0"
+json_parse(buffer, &parser); // tokenize JSON buffer
+
+json_get_value_by_object(parser.tokens, parser.obj_idx, "root.object.string1", temp) // temp = "Hello\0"
+json_get_value_by_object(parser.tokens, parser.obj_idx, "root.array[1]", temp) // temp = "true\0"
 ```
 
 ## Limitations
-1. The number of tokens currently allowed is 255
-2. The max size of a key/value is 80 characters
+1. The max size of a key is 40 characters
+2. The max size of a value is 80 characters
+3. The max depth for nesting is 32
